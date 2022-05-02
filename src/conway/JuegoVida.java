@@ -1,187 +1,234 @@
 package conway;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-
+import java.util.Scanner;
 
 public class JuegoVida {
-	static final String SEPARADOR = ";";
 
-	static final int FILAS = 50;
-	static final int COLUMNAS = 50;
-	static int[][] matrizBoard = new int[FILAS][COLUMNAS];
-	
-	
+	private int[][] currentState; // declarar
+	private int generation;
 
-	/**
-	 * Método para leer un fichero CSV que contiene valores enteros Usando la clase
-	 * BufferedReader
-	 * 
-	 * @param ruta nombre y ruta completa del fichero al que escribimos
-	 * @return tabla o array de 2-D con los valores enteros leídos del fichero
-	 */
-	static int[][] leerDeFichero(String ruta) {
+	public JuegoVida() {
 
-		int[][] valores;
-		int[] valores_fila;
-		String linea;
-		String[] elementos;
+	}
 
-		try (BufferedReader lector = new BufferedReader(new FileReader(ruta))) {
+	public void runGame() throws Exception {
+		final String RUTA_LECTURA = "Ficheros/Libro.csv";
 
-			ArrayList<String> lineas = new ArrayList<>();
-			// leemos primera línea
-			linea = lector.readLine();
-			while (linea != null) {
-				// agregamos a la lista y leemos la siguiente línea
-				lineas.add(linea.trim());
-				linea = lector.readLine();
-			} // fin del recorrido del fichero
+		int[][] valores = CSVFileManager.leerDeFichero(RUTA_LECTURA);
 
-			/*
-			 * ahora sabemos cuántas líneas tenemos, que coincide con las filas de la matriz
-			 * La segunda dimensión la dejamos sin definir
-			 */
-			valores = new int[lineas.size()][];
-
-			int n_fila = 0;
-
-			for (String fila : lineas) {
-				// separo los valores de la fila leída
-				elementos = fila.split(SEPARADOR);
-				// ahora podemos dimensionar esta fila
-				valores_fila = new int[elementos.length];
-				for (int k = 0; k < elementos.length; k++) {
-					valores_fila[k] = Integer.parseInt(elementos[k]);
-				}
-				// y agrego la fila en la posición correspondiente
-				valores[n_fila] = valores_fila;
-				n_fila++; // incremento el contador de la fila
+		// imprimo los valores leidos
+		for (int i = 0; i < valores.length; i++) {
+			for (int k = 0; k < valores[i].length; k++) {
+				System.out.format("%2d", valores[i][k]);
 			}
-			return valores;
+			System.out.println();
 
-		} catch (IOException e) {
-			System.out.println("Se produjo el siguiente error al acceder al fichero \n " + e.getMessage());
-			return null;
-		} catch (NumberFormatException e) {
-			System.out.println("Revise el fichero porque tiene valores que no pueden convertirse a enteros");
-			return null;
+		}
+		currentState = setMatrizBoard(valores);
+
+		imprimirBoardGrid(currentState);
+		// pruebas de los vecinos vicos
+		System.out.println(getNumeroVecinosVivos(0, 0));
+		System.out.println(getNumeroVecinosVivos(1, 1));
+		System.out.println(getNumeroVecinosVivos(2, 2));
+		System.out.println(getNumeroVecinosVivos(3, 3));
+		System.out.println(getNumeroVecinosVivos(4, 4));
+		System.out.println(getNumeroVecinosVivos(5, 3));
+		System.out.println(getNumeroVecinosVivos(7, 1));
+		System.out.println(getNumeroVecinosVivos(8, 0));
+
+		printIntroduction();
+
+		getGeneration();
+		for (int i = 1; i <= generation; i++) {
+			System.out.println("=====     GENERATION " + i + "     =====");
+
+			Thread.sleep(500);
+
+			applyGameRules();
+			imprimirBoardGrid(currentState);
 		}
 
-	} // fin del método
+		// final String RUTA_ESCRITURA = "Ficheros/Libro_copy.csv";
+		final String RUTA_ESCRITURA = "Ficheros/Libro.csv";
+		// y ahora copio los valores de matrizBoard en el fichero
+		boolean resultado = CSVFileManager.escribirAFichero(currentState, RUTA_ESCRITURA);
+
+		System.out.println(resultado ? "OperaciÃ³n de escritura correcta" : "OperaciÃ³n de escritura fallida");
+
+		imprimirBoardGrid(currentState);
+
+	}
 
 	/**
-	 * Método para rellenar la MatrizBoard con los valores que hemeos leydo desde
+	 * imprima la introducción
+	 */
+	private void printIntroduction() {
+		System.out.println("\t Conway's game of life SIMULATOR.");
+		System.out.println("Las reglas del juego son los siguientes: ");
+		System.out.println("1. Cualquier célula con menos de 2 vecinos muere en la siguiente generación por soledad.\n"
+				+ "2.    Cualquier célula que tenga 2 ó 3 vecinos sobrevive en la siguiente generación.\n"
+				+ "3.    Cualquier célula con más de 3 vecinos muere en la siguiente generación por sobrepoblación.\n"
+				+ "4.    En cualquier celda vacía que esté rodeada exactamente de 3 células, nace por “generación "
+				+ "espontánea” una nueva célula en la generación siguiente.");
+
+	}
+
+	/**
+	 * Conseguir el número de simulaciones que el usuario quiere simular
+	 * 
+	 */
+	private void getGeneration() {
+		System.out.print("Cuantos generaciones quieres simular?: ");
+		generation = readInteger();
+	}
+
+	/**
+	 * Leer un entero desde teclado (standard input)
+	 * 
+	 * @return
+	 */
+	private int readInteger() {
+		boolean correctInput = false;
+		Scanner scanner = new Scanner(System.in);
+		int integer = 0;
+		while (!correctInput) {
+			try {
+				integer = scanner.nextInt();
+				correctInput = true;
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+				System.out.print("Input error. Please try again: ");
+				scanner.nextLine();
+			}
+		}
+		scanner.close();
+		return integer;
+	}
+
+	/**
+	 * Método para rellenar la currentState con los valores que hemeos leydo desde
 	 * fichero de tipo csv
 	 * 
 	 * @param valores matriz bidimensional que es el resuldado del metodo
 	 *                leerDeFichero()
-	 * @return matrizBoard con contenido del fichero que hemos leydo (son valores de
-	 *         0 y 1)
+	 * @return currentState con contenido del fichero que hemos leydo (son valores
+	 *         de 0 y 1)
 	 */
-	public static int[][] setMatrizBoard(int valores[][]) {
+	public int[][] setMatrizBoard(int valores[][]) {
+		currentState = new int[valores.length][valores[0].length]; // iniciar
+		for (int i = 0; i < valores.length; i++) {
+			for (int j = 0; j < valores[0].length; j++) {
 
-		for (int i = 0; i < matrizBoard.length; i++) {
-			for (int j = 0; j < matrizBoard[0].length; j++) {
-
-				matrizBoard[i][j] = valores[i][j];
+				currentState[i][j] = valores[i][j];
 
 			}
 
 		}
-		return matrizBoard;
+		return currentState;
 	}
 
 	/**
-	 * Método de tipo void para imprimir el contenido de la matrizBoard de la clase
+	 * Método de tipo void para imprimir el contenido de la currentState de la clase
 	 * en función si es viva o no
 	 */
-	public static void imprimirBoard() {
 
-		for (int i = 0; i < FILAS; i++) {
-			String celda = "";
-			for (int j = 0; j < COLUMNAS; j++) {
-				// No es viva
-				if (matrizBoard[i][j] == 0) {
-					celda += " ";
-					// es viva
-				} else if (matrizBoard[i][j] == 1) {
-					celda += "*";
-				}
+	public void imprimirBoardGrid(int[][] grid) {
+		for (int i = 0; i < grid.length; i++) {
+			for (int j = 0; j < grid[0].length; j++) {
+				if (grid[i][j] == 1)
+					System.out.print("*");
+				else if (grid[i][j] == 0)
+					System.out.print(" ");
 			}
-
-			System.out.println(celda);
+			System.out.println();
 		}
-
 	}
 
 	/**
-	 * Método para contar las celulas vivas de una celda de la matrizBoard
+	 * Obtener el numero de los vecinos de una celda
 	 * 
-	 * @param i posición de la celda, el numero de FILA
-	 * @param j posición de la celda, el numero de COLUMNA
-	 * @return el número de los vecinos vivos
-	 * @see getState(i,j) ;
+	 * @param i Coordinate X
+	 * @param j Coordinate Y
+	 * @return Returns el numero de los vecinos
 	 */
-	public static int countVecinosVivos(int i, int j) {
-		int count = 0;
-		// los valores son 0 or 1..entonces cuando encuentra 1, cumula con valor
-		// inicial..
-		// voy a tener error IndexOutOfBound si i=0 (0-1 devuelve negativo)
-		// voy a utilizar getState()
 
-		count += getState(i - 1, j - 1);
-		count += getState(i, j - 1);
-		count += getState(i + 1, j - 1);
+	private int getNumeroVecinosVivos(int i, int j) {
+		int numberOfNeighbours = 0;
+		try {
+			if (currentState[i - 1][j - 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
 
-		count += getState(i - 1, j);
-		count += getState(i + 1, j);
+		try {
+			if (currentState[i - 1][j] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
 
-		count += getState(i - 1, j + 1);
-		count += getState(i, j + 1);
-		count += getState(i + 1, j + 1);
+		try {
+			if (currentState[i - 1][j + 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
 
-		return count;
+		try {
+			if (currentState[i][j + 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
+
+		try {
+			if (currentState[i + 1][j + 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
+
+		try {
+			if (currentState[i + 1][j] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
+
+		try {
+			if (currentState[i + 1][j - 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
+
+		try {
+			if (currentState[i][j - 1] == 1)
+				numberOfNeighbours++;
+		} catch (Exception ignored) {
+		}
+		;
+
+		return numberOfNeighbours;
 	}
 
 	/**
-	 * Método para establecer si la celda es vina o no
-	 * 
-	 * @param i posición de la celda, el numero de FILA
-	 * @param j posición de la celda, el numero de COLUMNA
-	 * @return int 0 en caso IndexOutOfBound OR el el contenido de la celda 0-1
-	 */
-	public static int getState(int i, int j) {
-		if (i < 0 || i >= FILAS) {
-			return 0;
-		}
-		if (j < 0 || j >= COLUMNAS) {
-			return 0;
-
-		}
-		return matrizBoard[i][j];
-
-	}
-
-	/**
-	 * Método para establecer los ciclos de la matrizBoard de la clase . Si la celda
-	 * es viva y tiene 0 or 1 vecinos vivos, en el ciclo siguiente, desparesca por
+	 * Método para establecer los ciclos de la matriz currentState . Si la celda es
+	 * viva y tiene 0 or 1 vecinos vivos, en el ciclo siguiente, desparesca por
 	 * soledad; Si la celda es viva y tine 2 or 3 vecinos vivos, en el ciclo
 	 * siguiente, viva; Si la celda es viva y tiene mas de 3 vecinos vivos, en el
 	 * ciclo siguiente, desparesca por sobrepoblación; Si la celda no es viva pero
 	 * tiene exactamente 3 vecinos vivos, en el ciclo siguiente, nace
 	 * 
 	 */
-	public static int [][] etapa() {
-		int newBoard[][] = new int[FILAS][COLUMNAS];
-		for (int i = 0; i < matrizBoard.length; i++) {
-			for (int j = 0; j < matrizBoard[0].length; j++) {
-				int vecinosVivos = countVecinosVivos(i, j);
-				if (getState(i, j) == 1) {
+	public int[][] applyGameRules() {
+		int newBoard[][] = new int[currentState.length][currentState[0].length];
+		for (int i = 0; i < currentState.length; i++) {
+			for (int j = 0; j < currentState[0].length; j++) {
+				int vecinosVivos = getNumeroVecinosVivos(i, j);
+				if (currentState[i][j] == 1) {
 					if (vecinosVivos < 2) {
 						newBoard[i][j] = 0;
 
@@ -193,7 +240,7 @@ public class JuegoVida {
 
 					}
 
-				} else if (getState(i, j) == 0) {
+				} else if (currentState[i][j] == 0) {
 					if (vecinosVivos == 3) {
 						newBoard[i][j] = 1;
 
@@ -203,69 +250,7 @@ public class JuegoVida {
 
 			}
 		}
-		return matrizBoard = newBoard;
+		return currentState = newBoard;
 	}
-/**
- * Método para poner en marcha las etapas del JuegoVida
- * @param numeroVecez entero con el número de veces que queremos correr
- */
-	public static void run (int numeroVecez) {
-		try {
-			for (int i = 0; i <numeroVecez ; i++) {
-
-				Thread.sleep(1000);
-
-				etapa();
-				imprimirBoard();
-			}
-		} catch (Exception e) {
-
-			System.out.println(e);
-		}
-	
-
-	}
-	
-	/**
-	 * Método para escribir una tabla - array 2D- de valores enteros en un fichero
-	 * CSV Usamos la clase BufferedWriter
-	 * 
-	 * @param valores array de 2D con los valores enteros que queremos escribir
-	 * @param ruta    nombre y ruta completa del fichero al que escribimos
-	 * @return Verdadero si se puede escribir sin errores, Falso si hay algÃºn error
-	 */
-	static boolean escribirAFichero(int[][] valores, String ruta) {
-
-		String linea;
-
-		try (BufferedWriter escritor = new BufferedWriter(new FileWriter(ruta))) {
-			// abrimos el fichero en modo "destructivo"
-			// recorrido del array por filas
-			for (int i = 0; i < valores.length; i++) {
-				linea = "";
-				for (int k = 0; k < valores[i].length - 1; k++) {
-					linea = linea + Integer.toString(valores[i][k]) + SEPARADOR;
-					// linea=linea+valores[i][k]+SEPARADOR; //mÃ¡s conciso
-				}
-				// el Ãºltimo elemento lo agregamos sin el carÃ¡cter separador
-				linea = linea + Integer.toString(valores[i][valores[i].length - 1]);
-				// y agregamos la nueva lÃ­nea al fichero, aÃ±adiendo un salto de lÃ­nea
-				escritor.write(linea);
-				// si no estamos en la Ãºltima linea...
-				if (i != valores.length - 1) {
-					escritor.newLine();
-				}
-
-			} // fin de recorrido de lÃ­neas
-			return true;
-
-		} catch (IOException e) {
-			System.out.println("Se produjo el siguiente error al acceder al fichero \n " + e.getMessage());
-			return false;
-
-		}
-		// no necesitamos finally al haber usado la estructura try-resources
-	} // fin del método de escritura
-	
 
 }

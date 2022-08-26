@@ -39,13 +39,15 @@ public class GameOfLife {
 		return currentState; 
 	}
 	
-	public void setGeneration(int generation) {
-		this.generation = generation; 
-	}
 	
 	public int getGenerationPropierty() {
 		return generation; 
 	}
+	
+	public void setGeneration(int generation) {
+		this.generation = generation; 
+	}
+	
     
 	public void loadGame() throws Exception 
 	{

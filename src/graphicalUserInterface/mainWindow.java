@@ -16,7 +16,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import gameOfLife.*;
 import javax.swing.JList; 
-
+// *******************************************************
 public class mainWindow {
 
 	private static JFrame frame;
